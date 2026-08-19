@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local environment files (NEVER commit tokens)
+.env
+.env.local
+.env.*.local
+.env.bak*
+.env.*.bak
+
+# Generated artifacts
+recipe.generated.json
+recipe.vector.generated.json
+
+# Logs
+*.log
+npm-debug.log*
+*.out
+*.out.log
+*.err.log
+*.status.log
+
+# OS / editor
+.DS_Store
+Thumbs.db

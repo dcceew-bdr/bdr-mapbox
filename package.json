@@ -1,0 +1,37 @@
+{
+  "name": "nvis-mapbox-poc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Proof of concept: upload the NVIS MVG GeoTIFF to Mapbox Tiling Service and view it in a Vue 3 + Mapbox GL JS app.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "token:create": "node scripts/create-token.mjs",
+    "mts:prepare": "node scripts/prepare-geotiff.mjs",
+    "mts:upload": "node scripts/upload-to-mts.mjs",
+    "mts:status": "node scripts/upload-to-mts.mjs --status-only",
+    "vec:prepare": "node scripts/prepare-vector.mjs",
+    "vec:build": "node scripts/build-mbtiles.mjs",
+    "overview:make": "node scripts/make-overview.mjs",
+    "overview:simplify": "node scripts/simplify-geojson.mjs",
+    "vec:upload": "node scripts/upload-vector-to-mts.mjs",
+    "vec:status": "node scripts/upload-vector-to-mts.mjs --status-only",
+    "mb:upload": "node scripts/upload-mbtiles.mjs",
+    "mb:status": "node scripts/upload-mbtiles.mjs --status-only",
+    "vec:watch": "node scripts/watch-build.mjs"
+  },
+  "dependencies": {
+    "mapbox-gl": "^3.7.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "gdal-async": "^3.12.3",
+    "vite": "^6.0.7"
+  },
+  "engines": {
+    "node": ">=20.12.0"
+  }
+}

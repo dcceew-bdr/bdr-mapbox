@@ -1,0 +1,45 @@
+:root {
+  --header-h: 60px;
+  --panel-bg: rgba(255, 255, 255, 0.96);
+  --panel-border: #e2e6ea;
+  --text: #1c2733;
+  --muted: #5b6b7b;
+  --accent: #0b6b3a; /* DCCEEW-ish green */
+  --accent-2: #1f6feb;
+  --shadow: 0 6px 24px rgba(16, 32, 48, 0.18);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Reusable floating panel look used by the controls + legend overlays */
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
