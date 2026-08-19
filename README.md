@@ -40,8 +40,6 @@ GDAL (via `gdal-async`, no system install), and tippecanoe.
   - a **public** token (`pk.…`) for the browser app,
   - a **secret** token (`sk.…`) with `tilesets:write`, `tilesets:read`,
     `tilesets:list` for the upload scripts.
-- **tippecanoe** — only if you're building the vector tiles yourself. Not needed
-  just to run the app against an already-published tileset.
 - **No GDAL install needed** — the prep step uses
   [`gdal-async`](https://www.npmjs.com/package/gdal-async), which ships its own
   GDAL and is installed by `npm install`.
@@ -72,6 +70,8 @@ npm run dev        # http://localhost:5173
 > `VITE_NVIS_TILESET_ID` later and refresh.
 
 ### Rebuild and publish tiles (only if regenerating the data)
+
+> Requires **tippecanoe** installed (used by `vec:build`).
 
 ```bash
 npm run vec:prepare   # raster → simplified GeoJSON
