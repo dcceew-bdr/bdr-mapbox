@@ -24,6 +24,8 @@ const props = defineProps({
   token: { type: String, required: true },
   // e.g. "kevinthiele.nvis_mvg_vector_90m"
   tilesetId: { type: String, default: '' },
+  // Raster overview shown below VEG_VECTOR_MIN_ZOOM, e.g. "kevinthiele.nvis_mvg"
+  rasterTilesetId: { type: String, default: '' },
   basemapUrl: { type: String, required: true },
   opacity: { type: Number, default: 0.85 },
   layerVisible: { type: Boolean, default: true }
@@ -34,6 +36,10 @@ const emit = defineEmits(['ready', 'tile-error', 'legend-change'])
 const SOURCE_ID = 'nvis-mvg-vec'
 const FILL_ID = 'nvis-mvg-fill'
 const LINE_ID = 'nvis-mvg-outline'
+const RASTER_SOURCE_ID = 'nvis-mvg-raster'
+const RASTER_LAYER_ID = 'nvis-mvg-raster-layer'
+// Raster shows below this zoom; vector at/above it.
+const VEG_VECTOR_MIN_ZOOM = 11
 const AUSTRALIA = { center: [134, -26], zoom: 3.2 }
 
 let map = null
@@ -41,17 +47,48 @@ let popup = null
 /** Classes currently visible in the viewport (for the dynamic legend). */
 const visibleClasses = ref([])
 
+function isTilesetId(id) {
+  return Boolean(id) && id.includes('.') && !id.includes('your_')
+}
 function hasTileset() {
-  return Boolean(props.tilesetId) && props.tilesetId.includes('.') && !props.tilesetId.includes('your_')
+  return isTilesetId(props.tilesetId)
+}
+function hasRaster() {
+  return isTilesetId(props.rasterTilesetId)
 }
 
-/** (Re)adds the NVIS vector source + fill/outline layers. Idempotent. */
+/** (Re)adds the NVIS raster (low zoom) + vector (high zoom) layers. Idempotent. */
 function addNvisVectorLayer() {
-  if (!map || !hasTileset()) return
+  if (!map) return
 
-  if (map.getLayer(LINE_ID)) map.removeLayer(LINE_ID)
-  if (map.getLayer(FILL_ID)) map.removeLayer(FILL_ID)
-  if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
+  for (const id of [LINE_ID, FILL_ID, RASTER_LAYER_ID]) {
+    if (map.getLayer(id)) map.removeLayer(id)
+  }
+  for (const id of [SOURCE_ID, RASTER_SOURCE_ID]) {
+    if (map.getSource(id)) map.removeSource(id)
+  }
+
+  // Raster overview beneath the vector, drawn only below VEG_VECTOR_MIN_ZOOM.
+  if (hasRaster()) {
+    map.addSource(RASTER_SOURCE_ID, {
+      type: 'raster',
+      url: `mapbox://${props.rasterTilesetId}`,
+      tileSize: 256
+    })
+    map.addLayer({
+      id: RASTER_LAYER_ID,
+      type: 'raster',
+      source: RASTER_SOURCE_ID,
+      maxzoom: VEG_VECTOR_MIN_ZOOM,
+      layout: { visibility: props.layerVisible ? 'visible' : 'none' },
+      paint: { 'raster-opacity': props.opacity, 'raster-resampling': 'nearest' }
+    })
+  }
+
+  if (!hasTileset()) {
+    updateViewportLegend()
+    return
+  }
 
   map.addSource(SOURCE_ID, {
     type: 'vector',
@@ -68,6 +105,7 @@ function addNvisVectorLayer() {
     type: 'fill',
     source: SOURCE_ID,
     'source-layer': MVG_SOURCE_LAYER,
+    minzoom: VEG_VECTOR_MIN_ZOOM,
     layout: { visibility: props.layerVisible ? 'visible' : 'none' },
     paint: {
       'fill-color': buildMvgColorExpression(),
@@ -81,6 +119,7 @@ function addNvisVectorLayer() {
     type: 'line',
     source: SOURCE_ID,
     'source-layer': MVG_SOURCE_LAYER,
+    minzoom: VEG_VECTOR_MIN_ZOOM,
     layout: { visibility: props.layerVisible ? 'visible' : 'none' },
     paint: {
       'line-color': 'rgba(0,0,0,0.15)',
@@ -196,6 +235,7 @@ watch(
   () => props.opacity,
   (value) => {
     if (map?.getLayer(FILL_ID)) map.setPaintProperty(FILL_ID, 'fill-opacity', value)
+    if (map?.getLayer(RASTER_LAYER_ID)) map.setPaintProperty(RASTER_LAYER_ID, 'raster-opacity', value)
   }
 )
 
@@ -205,11 +245,12 @@ watch(
     const v = visible ? 'visible' : 'none'
     if (map?.getLayer(FILL_ID)) map.setLayoutProperty(FILL_ID, 'visibility', v)
     if (map?.getLayer(LINE_ID)) map.setLayoutProperty(LINE_ID, 'visibility', v)
+    if (map?.getLayer(RASTER_LAYER_ID)) map.setLayoutProperty(RASTER_LAYER_ID, 'visibility', v)
   }
 )
 
 watch(
-  () => props.tilesetId,
+  () => [props.tilesetId, props.rasterTilesetId],
   () => addNvisVectorLayer()
 )
 

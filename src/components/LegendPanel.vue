@@ -1,8 +1,20 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { NVIS_MVG_CLASSES, rgbToCss } from '../data/nvisMvgLegend.js'
 
+const props = defineProps({
+  // Viewport-aware classes emitted by the map: { value, name, css }.
+  items: { type: Array, default: () => [] }
+})
+
 const open = ref(true)
+
+// Show only the classes currently on screen; fall back to the full list.
+const rows = computed(() =>
+  props.items.length
+    ? props.items.map((i) => ({ value: i.value, name: i.name, css: i.css }))
+    : NVIS_MVG_CLASSES.map((c) => ({ value: c.value, name: c.name, css: rgbToCss(c.rgb) }))
+)
 </script>
 
 <template>
@@ -14,8 +26,8 @@ const open = ref(true)
 
     <div v-show="open" class="legend__body">
       <ul class="legend__list">
-        <li v-for="c in NVIS_MVG_CLASSES" :key="c.value" class="legend__item">
-          <span class="swatch" :style="{ background: rgbToCss(c.rgb) }"></span>
+        <li v-for="c in rows" :key="c.value" class="legend__item">
+          <span class="swatch" :style="{ background: c.css }"></span>
           <span class="legend__name">
             <span class="legend__value">{{ c.value }}</span>
             {{ c.name }}

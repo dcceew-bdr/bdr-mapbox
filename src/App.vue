@@ -1,16 +1,18 @@
 <script setup>
 import { computed, ref } from 'vue'
-import MapView from './components/MapView.vue'
+import NvisVectorMap from './components/NvisVectorMap.vue'
 import ControlsPanel from './components/ControlsPanel.vue'
 import LegendPanel from './components/LegendPanel.vue'
 
 // --- Configuration from environment (.env) ---------------------------------
 const token = import.meta.env.VITE_MAPBOX_TOKEN || ''
-const tilesetId = import.meta.env.VITE_NVIS_TILESET_ID || ''
+const tilesetId = import.meta.env.VITE_NVIS_VECTOR_TILESET_ID || ''
+const rasterTilesetId = import.meta.env.VITE_NVIS_TILESET_ID || ''
 
 const hasToken = computed(() => token.startsWith('pk.'))
+const isConfigured = (id) => id.includes('.') && !id.includes('your_')
 const tilesetConfigured = computed(
-  () => tilesetId.includes('.') && !tilesetId.includes('your_')
+  () => isConfigured(tilesetId) || isConfigured(rasterTilesetId)
 )
 
 // --- Base map options -------------------------------------------------------
@@ -31,9 +33,14 @@ const basemapUrl = computed(
 
 const mapRef = ref(null)
 const tileError = ref('')
+const legendItems = ref([])
 
 function onTileError(msg) {
   tileError.value = msg
+}
+
+function onLegendChange(items) {
+  legendItems.value = items
 }
 </script>
 
@@ -88,26 +95,28 @@ function onTileError(msg) {
     </header>
 
     <main class="stage">
-      <MapView
+      <NvisVectorMap
         ref="mapRef"
         :token="token"
         :tileset-id="tilesetId"
+        :raster-tileset-id="rasterTilesetId"
         :basemap-url="basemapUrl"
         :opacity="opacity"
         :layer-visible="layerVisible"
         @tile-error="onTileError"
+        @legend-change="onLegendChange"
       />
 
       <ControlsPanel @reset-view="mapRef?.flyToAustralia()" />
 
-      <LegendPanel />
+      <LegendPanel :items="legendItems" />
 
       <div v-if="tileError" class="toast panel">
         <strong>Couldn’t load the tileset.</strong>
         <span>{{ tileError }}</span>
         <small>
-          Check <code>VITE_NVIS_TILESET_ID</code> and that the publish job has
-          finished (see <code>npm run mts:status</code>).
+          Check <code>VITE_NVIS_VECTOR_TILESET_ID</code> and that the publish job
+          has finished (see <code>npm run vec:status</code>).
         </small>
         <button type="button" @click="tileError = ''" aria-label="Dismiss">×</button>
       </div>
