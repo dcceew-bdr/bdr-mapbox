@@ -1,208 +1,92 @@
-# NVIS × Mapbox — Raster Tiling Proof of Concept
+# NVIS × Mapbox — Vegetation Map POC
 
-Upload the **NVIS v7.0 Major Vegetation Groups** GeoTIFF
-(`NVIS7_0_AUST_EX_MVG.tif`, ~655 MB) to **Mapbox Tiling Service (MTS)** and view
-it on an interactive **Vue 3 + Mapbox GL JS** map.
+A proof of concept for getting NVIS Major Vegetation Group (MVG) data onto an
+interactive web map via Mapbox.
 
-This repo gives you two things:
+- **Vue 3 + Mapbox GL JS app** (`src`) — renders the map with a legend, layer
+  toggle, opacity, base-map switch, and click-to-identify.
+- **Node scripts** (`scripts`) — automate the Mapbox workflow: prep the data,
+  upload, build the recipe, publish, poll the job.
 
-1. **A small Vue app** (`/src`) that renders the published raster tileset with
-   opacity, layer‑toggle, base‑map switching and a full NVIS legend.
-2. **Node scripts** (`/scripts`) that automate the Mapbox workflow end‑to‑end —
-   create a token, upload the GeoTIFF, build the recipe, publish, and poll the
-   job until the tiles are ready.
+Data is served as vector tiles: each feature carries only the integer `mvg`
+code, and the app resolves names and colours locally from a legend table.
 
-```
-GeoTIFF  ──(GDAL: bake .clr → RGB)──▶  RGB GeoTIFF
-   │
-   └──(MTS: source → recipe → publish)──▶  Mapbox raster tileset  (username.nvis_mvg)
-                                                    │
-                                                    └──▶  Vue + Mapbox GL JS  (this app)
-```
+## Processing pipeline (source raster → vector tiles → Mapbox)
+
+1. **Warp** the single-band categorical NVIS GeoTIFF to EPSG:3857
+   (nearest-neighbour, to preserve class codes).
+2. **Sieve** out salt-and-pepper speck clusters — the biggest lever on tile size.
+3. **Polygonise** into features carrying a single integer `mvg` property.
+4. **Simplify** polygons (Douglas-Peucker) and reproject to EPSG:4326, dropping
+   no-data classes, out to line-delimited GeoJSON.
+5. **Tile** with tippecanoe into `.mbtiles` (`--drop-densest-as-needed` keeps
+   every tile under Mapbox's 500 KB limit).
+6. **Upload & publish** to Mapbox Tiling Service — delete the old source, upload,
+   apply the recipe, publish, and poll the job to completion.
+
+## Tech used
+
+Vue 3, Vite, Mapbox GL JS, Mapbox Tiling Service (MTS), Node.js (ES modules),
+GDAL (via `gdal-async`, no system install), and tippecanoe.
 
 ---
 
-## ⭐ TL;DR (the 5‑minute demo path)
+## Getting it running
+
+### You need
+
+- **Node.js ≥ 20.12** — runs the app and all scripts.
+- **A Mapbox account** (free tier is plenty) with two tokens:
+  - a **public** token (`pk.…`) for the browser app,
+  - a **secret** token (`sk.…`) with `tilesets:write`, `tilesets:read`,
+    `tilesets:list` for the upload scripts.
+- **tippecanoe** — only if you're building the vector tiles yourself. Not needed
+  just to run the app against an already-published tileset.
+- **No GDAL install needed** — the prep step uses
+  [`gdal-async`](https://www.npmjs.com/package/gdal-async), which ships its own
+  GDAL and is installed by `npm install`.
+
+### Setup
 
 ```bash
-cd mapbox-poc
 npm install
-cp .env.example .env          # then paste your Mapbox tokens into .env
-
-# 1. Colourise the raster → transparent-nodata RGBA COG (bundled GDAL, no install)
-npm run mts:prepare
-# 2. Upload + publish to Mapbox
-npm run mts:upload
-# 3. Run the app
-npm run dev
+cp .env.example .env      # then fill in your values
 ```
 
-> **Don’t have the tileset published yet?** No problem — the app still runs and
-> shows the base map. Add `VITE_NVIS_TILESET_ID` later and refresh.
+### Key `.env` values
 
----
+- `VITE_MAPBOX_TOKEN` — public `pk.` token (browser).
+- `VITE_NVIS_TILESET_ID` — the published tileset, `username.tileset_name`
+  (printed at the end of upload).
+- `MAPBOX_USERNAME` and `MAPBOX_SECRET_TOKEN` — for the upload scripts.
+- Data paths (`PREP_INPUT_TIF`, etc.) and tuning knobs (target resolution, sieve
+  area, simplify, zoom range) have sensible defaults.
 
-## Why a preprocessing step is required (read this!)
-
-The raw `NVIS7_0_AUST_EX_MVG.tif` is a **single‑band, categorical raster**: each
-pixel is an integer **MVG class** (1–32, plus 99 = no‑data). The colours live in
-a **separate palette file**, `NVIS7_0_AUST_EX_MVG.clr`.
-
-Mapbox’s `type: "raster"` tilesets expect an **8‑bit RGB(A) GeoTIFF** — the
-recipe literally maps the *red / green / blue (/ alpha)* bands. So we first
-**bake the `.clr` palette into the pixels** to produce an RGBA GeoTIFF (with the
-ocean / no‑data made transparent), then upload that.
-
-This is a one‑off step: **`npm run mts:prepare`**. It runs entirely in Node via
-[`gdal-async`](https://www.npmjs.com/package/gdal-async) (which bundles GDAL), so
-**no system GDAL install is required**. It also keeps the legend in this app
-perfectly in sync with the map, because both use the same `.clr` values.
-
----
-
-## Prerequisites
-
-| Tool | Why | Notes |
-| --- | --- | --- |
-| **Node.js ≥ 20.12** | run the app + scripts | `node -v` |
-| **A Mapbox account** | hosting the tiles | free tier is plenty for a POC |
-
-> **No GDAL install needed.** The colourise step (`npm run mts:prepare`) uses
-> [`gdal-async`](https://www.npmjs.com/package/gdal-async), which ships prebuilt
-> GDAL binaries and is installed automatically by `npm install`. (If you prefer
-> the classic GDAL CLI, the equivalent commands are in Step 3 below.)
-
----
-
-## Mapbox tokens you’ll need
-
-Mapbox uses two kinds of token (see
-<https://docs.mapbox.com/api/accounts/tokens/>):
-
-| Token | Starts with | Used by | Scopes |
-| --- | --- | --- | --- |
-| **Secret** | `sk.` | the upload scripts (server‑side) | `tilesets:write`, `tilesets:read`, `tilesets:list` (+ `tokens:write` if you use `token:create`) |
-| **Public** | `pk.` | the browser app | default public scopes (`styles:tiles`, `styles:read`, `fonts:read`) |
-
-Create them at <https://console.mapbox.com/account/access-tokens/>, or mint the
-public one from the CLI:
+### Run the app (against an existing tileset)
 
 ```bash
-npm run token:create     # prints a pk.… token to paste into .env
+npm run dev        # http://localhost:5173
 ```
 
-Put everything into `mapbox-poc/.env` (copied from `.env.example`). **Never
-commit `.env`** — it’s already in `.gitignore`.
+> No tileset published yet? The app still runs and shows the base map — add
+> `VITE_NVIS_TILESET_ID` later and refresh.
 
----
-
-## Step‑by‑step
-
-### Step 1 — Install
+### Rebuild and publish tiles (only if regenerating the data)
 
 ```bash
-cd mapbox-poc
-npm install
-cp .env.example .env       # Windows: copy .env.example .env
+npm run vec:prepare   # raster → simplified GeoJSON
+npm run vec:build     # GeoJSON → .mbtiles (tippecanoe)
+npm run vec:upload    # upload + publish to Mapbox, poll the job
+npm run vec:status    # check job status any time
 ```
 
-### Step 2 — Fill in `.env`
+### Good to know
 
-At minimum set `MAPBOX_USERNAME`, `MAPBOX_SECRET_TOKEN`, and (for the app)
-`VITE_MAPBOX_TOKEN`. The tileset/source IDs already have sensible defaults.
-
-### Step 3 — Prepare the GeoTIFF (bake the palette → RGBA COG)
-
-```bash
-npm run mts:prepare
-```
-
-This runs `scripts/prepare-geotiff.mjs` (via the bundled GDAL in `gdal-async`) and:
-1. parses `NVIS7_0_AUST_EX_MVG.clr` into per‑channel lookup tables,
-2. expands the single categorical band into **4 RGBA bands** (no‑data `255` and
-   any unlisted class → **transparent**), via an on‑the‑fly VRT,
-3. reprojects to **EPSG:3857** with **nearest** resampling (crisp class edges),
-4. writes a **Cloud‑Optimized GeoTIFF** with overviews to `MTS_GEOTIFF`.
-
-By default it outputs at **150 m/px** (`PREP_TARGET_RES` in `.env`) — about 4×
-finer than zoom 8 needs, so it’s small (~130 MB) and quick. Set
-`PREP_TARGET_RES=native` if you ever raise `MTS_MAXZOOM` well above 8 and want
-full ~30 m detail (much larger/slower).
-
-<details>
-<summary>Prefer the classic GDAL CLI? (optional, equivalent)</summary>
-
-If you have a system GDAL install, the equivalent of the script is:
-
-```bash
-cd ../NVIS_V7_30m/NVIS_V7_30m_Revised
-
-# 1) Bake the palette → RGBA (nv entry makes no-data transparent).
-gdaldem color-relief NVIS7_0_AUST_EX_MVG.tif NVIS7_0_AUST_EX_MVG.clr \
-  nvis_rgba.tif -alpha -nearest_color_entry
-
-# 2) Reproject to Web Mercator + write a COG.
-gdalwarp -t_srs EPSG:3857 -r near nvis_rgba.tif nvis_rgba_3857.tif
-gdal_translate nvis_rgba_3857.tif nvis_rgba_cog.tif \
-  -of COG -co COMPRESS=DEFLATE -co BLOCKSIZE=512
-```
-</details>
-
-### Step 4 — Upload + publish to Mapbox
-
-```bash
-cd ../../mapbox-poc
-npm run mts:upload
-```
-
-This will, in order:
-1. **Create a tileset source** from your RGB GeoTIFF.
-2. **Validate** the raster recipe (written to `recipe.generated.json`).
-3. **Create the tileset** (or update its recipe if it already exists).
-4. **Publish** and **poll the job** until it reports `success`.
-
-When it finishes it prints the line to add to `.env`:
-
-```
-VITE_NVIS_TILESET_ID=your_username.nvis_mvg
-```
-
-Check status any time with:
-
-```bash
-npm run mts:status
-```
-
-### Step 5 — Run the app
-
-```bash
-npm run dev
-```
-
-Open <http://localhost:5173>. You’ll get:
-- the NVIS raster over a switchable base map (Light / Satellite / Streets / Dark),
-- an **opacity** slider and a **layer toggle**,
-- a **legend** generated from the `.clr` palette + standard MVG names,
-- a “Reset view to Australia” button.
-
-Build a static bundle for sharing with `npm run build` (output in `dist/`).
-
----
-
-## How the app references the tileset
-
-A Mapbox‑hosted tileset is added with the `mapbox://` protocol; GL JS fetches its
-TileJSON automatically using your public token (`src/components/MapView.vue`):
-
-```js
-map.addSource('nvis-mvg', { type: 'raster', url: `mapbox://${tilesetId}` })
-map.addLayer({
-  id: 'nvis-mvg-raster',
-  type: 'raster',
-  source: 'nvis-mvg',
-  paint: { 'raster-opacity': 0.85, 'raster-resampling': 'nearest' }
-})
-```
+- The upload script **deletes the existing source before uploading** — MTS
+  otherwise *appends* files and the source balloons past its size limit.
+- Keep tiles under Mapbox's **500 KB** limit; that's what tippecanoe's
+  `--drop-densest-as-needed` handles.
+- **Never commit `.env`** — it holds your secret token (already in `.gitignore`).
 
 ---
 
@@ -219,18 +103,22 @@ mapbox-poc/
 │  ├─ App.vue              # layout, base-map state, token gate
 │  ├─ style.css
 │  ├─ components/
-│  │  ├─ MapView.vue       # Mapbox GL JS map + NVIS raster layer
+│  │  ├─ NvisVectorMap.vue # Mapbox GL JS map + NVIS vector layer
+│  │  ├─ MapView.vue       # earlier raster map view
 │  │  ├─ ControlsPanel.vue # opacity / visibility / base map
 │  │  └─ LegendPanel.vue   # NVIS MVG legend
 │  └─ data/
-│     └─ nvisMvgLegend.js  # colours from the .clr + MVG names
+│     ├─ nvisMvgLegend.js       # MVG codes → names + colours
+│     └─ nvisMvgExpressions.js  # data-driven fill paint expressions
 └─ scripts/
-   ├─ create-token.mjs     # Tokens API → public pk token
-   ├─ prepare-geotiff.mjs  # .clr palette → transparent RGBA COG (gdal-async)
-   ├─ upload-to-mts.mjs    # source → recipe → publish → poll
+   ├─ prepare-vector.mjs      # raster → sieve → polygonise → GeoJSON (gdal-async)
+   ├─ build-mbtiles.mjs       # GeoJSON → .mbtiles (tippecanoe)
+   ├─ upload-vector-to-mts.mjs# delete source → upload → recipe → publish → poll
+   ├─ create-token.mjs        # Tokens API → public pk token
+   ├─ delete-source.mjs       # remove an MTS source before re-upload
    └─ lib/
-      ├─ env.mjs           # tiny .env loader
-      └─ mapbox.mjs        # fetch wrapper for the Mapbox API
+      ├─ env.mjs              # tiny .env loader
+      └─ mapbox.mjs           # fetch wrapper for the Mapbox API
 ```
 
 ---
@@ -238,12 +126,13 @@ mapbox-poc/
 ## Costs, limits & timing (for the POC conversation)
 
 - **Free tier** covers a generous amount of MTS processing/hosting and map loads;
-  a single continental raster at zoom 0–8 is well within it. See
+  a single continental vector tileset is well within it. See
   <https://www.mapbox.com/pricing/#tilesets>.
-- **Processing time** grows ~4× per extra zoom level. Start at `maxzoom 8` for a
-  fast demo; raise it later if you need more detail when zoomed in.
-- **File limits:** each source file ≤ 20 GB, total source ≤ 50 GB. Our ~655 MB
-  file is fine.
+- **Billing is per map *load*, not per tile or per zoom** — keeping z13 does not
+  inflate hosting cost. A "load" = each `new mapboxgl.Map()`.
+- **Tile size limit:** no tile may exceed **500 KB** at any zoom. tippecanoe's
+  `--drop-densest-as-needed` keeps low zooms under budget.
+- **File limits:** each source file ≤ 20 GB, total source ≤ 50 GB.
 
 ---
 
@@ -251,17 +140,17 @@ mapbox-poc/
 
 | Symptom | Fix |
 | --- | --- |
-| App shows **“Base map only”** | `VITE_NVIS_TILESET_ID` isn’t set (or the job isn’t finished). Run `npm run mts:status`. |
+| App shows **“Base map only”** | `VITE_NVIS_TILESET_ID` isn’t set (or the job isn’t finished). Run `npm run vec:status`. |
 | **401 / 403** from a script | The `sk.` token is missing scopes (`tilesets:write/read/list`). |
-| Recipe **invalid** / job **failed** | The GeoTIFF isn’t 8‑bit RGBA. Re‑run `npm run mts:prepare`; the COG should be `uint8`, 4 bands (Red/Green/Blue/Alpha). |
-| Tiles **misplaced** | CRS issue. Re‑warp to `EPSG:3857`, or set an optional `crs` on the recipe source. |
-| Colours look **blurred / blended** | Use nearest resampling: `-nearest_color_entry` (GDAL) — already in Step 3; the layer also uses `raster-resampling: nearest`. |
+| Job **failed** with *tile exceeds 500 KB* | Raise `--drop-densest-as-needed` aggressiveness or lower max zoom in `build-mbtiles.mjs`, then rebuild. |
+| Source **balloons** / repeated uploads fail | The MTS source appends files. The upload script deletes it first; if needed run `node scripts/delete-source.mjs`. |
+| Tiles **misplaced** | CRS issue. Ensure the GeoJSON is reprojected to `EPSG:4326` before tiling. |
 
 ---
 
 ## Reference docs
 
 - Mapbox Tiling Service API — <https://docs.mapbox.com/api/maps/mapbox-tiling-service/>
-- Raster recipe spec — <https://docs.mapbox.com/mapbox-tiling-service/recipe-specification/raster/>
-- Supported raster formats — <https://docs.mapbox.com/mapbox-tiling-service/raster/supported-file-formats/>
+- Vector recipe spec — <https://docs.mapbox.com/mapbox-tiling-service/recipe-specification/>
+- tippecanoe — <https://github.com/felt/tippecanoe>
 - Tokens API — <https://docs.mapbox.com/api/accounts/tokens/>
