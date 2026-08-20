@@ -96,8 +96,8 @@ So the final on-map credits combine three things:
 
 ## 5. How to implement in the client (Mapbox GL JS)
 
-Keep the default attribution control (already enabled in `MapView.vue` /
-`NvisVectorMap.vue` via `attributionControl: true`) and attach the NVIS credit to
+Keep the default attribution control (already enabled in `NvisVectorMap.vue` via
+`attributionControl: true`) and attach the NVIS credit to
 the vector source so it shows whenever the layer is visible:
 
 ```js

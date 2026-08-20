@@ -16,8 +16,6 @@
     "vec:build": "node scripts/build-mbtiles.mjs",
     "overview:make": "node scripts/make-overview.mjs",
     "overview:simplify": "node scripts/simplify-geojson.mjs",
-    "vec:upload": "node scripts/upload-vector-to-mts.mjs",
-    "vec:status": "node scripts/upload-vector-to-mts.mjs --status-only",
     "mb:upload": "node scripts/upload-mbtiles.mjs",
     "mb:status": "node scripts/upload-mbtiles.mjs --status-only",
     "vec:watch": "node scripts/watch-build.mjs"

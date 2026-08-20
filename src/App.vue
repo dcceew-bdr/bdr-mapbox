@@ -116,7 +116,7 @@ function onLegendChange(items) {
         <span>{{ tileError }}</span>
         <small>
           Check <code>VITE_NVIS_VECTOR_TILESET_ID</code> and that the publish job
-          has finished (see <code>npm run vec:status</code>).
+          has finished (see <code>npm run mb:status</code>).
         </small>
         <button type="button" @click="tileError = ''" aria-label="Dismiss">×</button>
       </div>

@@ -278,7 +278,7 @@ async function main() {
   logLine(`   file:      ${outGeojson}`)
   logLine(`   size:      ${fmtBytes(size)}`)
   logLine(`   features:  ${written.toLocaleString()} written (${rawCount.toLocaleString()} raw before filter/simplify)`)
-  logLine('DONE — next: node scripts/upload-vector-to-mts.mjs')
+  logLine('DONE — next: node scripts/build-mbtiles.mjs')
 }
 
 main().catch((err) => {

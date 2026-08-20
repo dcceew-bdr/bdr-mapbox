@@ -71,19 +71,20 @@ npm run dev        # http://localhost:5173
 
 ### Rebuild and publish tiles (only if regenerating the data)
 
-> Requires **tippecanoe** installed (used by `vec:build`).
+> `vec:build` tiles locally with **GDAL's MVT writer** (bundled in `gdal-async` —
+> no tippecanoe, Docker or WSL needed).
 
 ```bash
 npm run vec:prepare   # raster → simplified GeoJSON
-npm run vec:build     # GeoJSON → .mbtiles (tippecanoe)
-npm run vec:upload    # upload + publish to Mapbox, poll the job
-npm run vec:status    # check job status any time
+npm run vec:build     # GeoJSON → .mbtiles (GDAL MVT writer)
+npm run mb:upload     # upload + publish to Mapbox (Uploads API), poll the job
+npm run mb:status     # check job status any time
 ```
 
 ### Good to know
 
-- The upload script **deletes the existing source before uploading** — MTS
-  otherwise *appends* files and the source balloons past its size limit.
+- `mb:upload` uses the Mapbox **Uploads API** — it stages the `.mbtiles` and
+  Mapbox publishes it as a new tileset version.
 - Keep tiles under Mapbox's **500 KB** limit; that's what tippecanoe's
   `--drop-densest-as-needed` handles.
 - **Never commit `.env`** — it holds your secret token (already in `.gitignore`).
@@ -104,7 +105,6 @@ mapbox-poc/
 │  ├─ style.css
 │  ├─ components/
 │  │  ├─ NvisVectorMap.vue # Mapbox GL JS map + NVIS vector layer
-│  │  ├─ MapView.vue       # earlier raster map view
 │  │  ├─ ControlsPanel.vue # opacity / visibility / base map
 │  │  └─ LegendPanel.vue   # NVIS MVG legend
 │  └─ data/
@@ -113,7 +113,7 @@ mapbox-poc/
 └─ scripts/
    ├─ prepare-vector.mjs      # raster → sieve → polygonise → GeoJSON (gdal-async)
    ├─ build-mbtiles.mjs       # GeoJSON → .mbtiles (tippecanoe)
-   ├─ upload-vector-to-mts.mjs# delete source → upload → recipe → publish → poll
+   ├─ upload-mbtiles.mjs      # .mbtiles → Mapbox Uploads API → publish → poll
    ├─ create-token.mjs        # Tokens API → public pk token
    ├─ delete-source.mjs       # remove an MTS source before re-upload
    └─ lib/
@@ -140,10 +140,9 @@ mapbox-poc/
 
 | Symptom | Fix |
 | --- | --- |
-| App shows **“Base map only”** | `VITE_NVIS_TILESET_ID` isn’t set (or the job isn’t finished). Run `npm run vec:status`. |
-| **401 / 403** from a script | The `sk.` token is missing scopes (`tilesets:write/read/list`). |
+| App shows **“Base map only”** | `VITE_NVIS_TILESET_ID` isn’t set (or the job isn’t finished). Run `npm run mb:status`. |
+| **401 / 403** from a script | The `sk.` token is missing scopes (`tilesets:write/read/list`, `uploads:write/read`). |
 | Job **failed** with *tile exceeds 500 KB* | Raise `--drop-densest-as-needed` aggressiveness or lower max zoom in `build-mbtiles.mjs`, then rebuild. |
-| Source **balloons** / repeated uploads fail | The MTS source appends files. The upload script deletes it first; if needed run `node scripts/delete-source.mjs`. |
 | Tiles **misplaced** | CRS issue. Ensure the GeoJSON is reprojected to `EPSG:4326` before tiling. |
 
 ---

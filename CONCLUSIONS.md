@@ -1,6 +1,6 @@
 # NVIS × Mapbox POC — Conclusions & Decisions
 
-_Last updated: 22 July 2026_
+_Last updated: 20 August 2026_
 
 This document records what we learned getting the NVIS Major Vegetation Groups
 (MVG) data into Mapbox, the decisions made, and the reasoning — so the next
@@ -123,17 +123,23 @@ A code critique (correct) identified why:
   second pass reprojects to **EPSG:4326 GeoJSONSeq** for upload.
 - **Class 99 dropped** at the filter step (kept 24 Inland Aquatic, 28 Sea).
 
-### Per-zoom generalisation is handled server-side
-`upload-vector-to-mts.mjs`'s recipe already does the "gold standard" per-zoom
-work in MTS:
+### Per-zoom generalisation — originally server-side, now done locally
+
+> **Superseded:** the raw-GeoJSON → MTS recipe route (`upload-vector-to-mts.mjs`)
+> has been **retired**. Per-zoom generalisation now happens during the **local
+> tile build** (see §10). The notes below are kept as background on why the MTS
+> recipe looked attractive before the raw file hit the ingest wall.
+
+The retired MTS recipe did the "gold standard" per-zoom work server-side:
 - `union: [{ group_by: ['mvg'] }]` — coalesces adjacent same-class polygons.
 - `simplification: ['case', ['<', ['zoom'], 6], 8, 4]` — simplify harder at low
   zoom.
 - `remove_small_polygons` at low zoom + `limit: [['tile', 2500,
   'drop_densest_as_needed']]` — respect the per-tile budget.
 
-So local prep only needs a **single light** simplify to strip pixel stair-steps;
-MTS does the rest per zoom.
+The local MVT build (§10) reproduces the important parts via `SIMPLIFICATION`
+(per-zoom) and `MAX_SIZE` (drop-densest), so the single light local simplify in
+`prepare-vector.mjs` is still all that's needed up front.
 
 ---
 
@@ -176,15 +182,19 @@ boundary faithfulness is wanted.
 ## 7. Operational checklist
 
 1. **Prepare:** `node scripts/prepare-vector.mjs` (local only; review size +
-   feature count before uploading).
-2. **Delete source before every upload** — appended sources were the raster
-   failure. (`scripts/delete-source.mjs`, and the vector upload script does this
-   automatically.)
-3. **Upload + publish:** `node scripts/upload-vector-to-mts.mjs` — watch the job;
-   note any per-tile warnings.
+   feature count before building).
+2. **Build tiles locally:** `node scripts/build-mbtiles.mjs` — GDAL MVT writer
+   slices the GeoJSON into per-zoom vector tiles → compact `.mbtiles`.
+3. **Upload + publish:** `node scripts/upload-mbtiles.mjs` (classic Uploads API)
+   — watch the job; note any per-tile warnings.
 4. If low-zoom tiles overflow: increase `PREPV_SIEVE_AREA_KM2` and/or
-   `PREPV_SIMPLIFY_M`, or make the recipe's low-zoom simplification more
-   aggressive, and re-run.
+   `PREPV_SIMPLIFY_M`, raise `MVT_SIMPLIFICATION`, or lower `MVT_MAXZOOM`, and
+   re-run.
+
+> The retired MTS route needed a **delete-source-before-every-upload** step
+> (appended sources were the raster failure — see §2). The Uploads API route
+> stages a fresh `.mbtiles` each time, so that footgun is gone; `delete-source.mjs`
+> remains only for cleaning up any leftover MTS sources.
 
 ---
 

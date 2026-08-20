@@ -135,7 +135,7 @@ async function main() {
   logLine('🎉 Local vector tileset ready.')
   logLine(`   file:  ${outMbtiles}`)
   logLine(`   size:  ${fmtBytes(size)}  (from ${fmtBytes(inSize)} of GeoJSON)`)
-  logLine('DONE — next: node scripts/upload-vector-to-mts.mjs (Uploads API)')
+  logLine('DONE — next: node scripts/upload-mbtiles.mjs (Uploads API)')
 }
 
 main().catch((err) => {
