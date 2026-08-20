@@ -173,6 +173,13 @@ https://account.mapbox.com/access-tokens/ — it has upload scopes. The standalo
 viewer (`viewer_config.js` and its `pk.` token) was also trimmed during the port;
 the PoC app uses a public `pk.` token via `VITE_MAPBOX_TOKEN` in `.env`.
 
+**To republish/upload a rebuilt tileset** you need a **secret `sk.` token from the
+account that owns the tileset — `kevinthiele`** — with `uploads:write` + `uploads:read`
+scopes. The tileset lives at `kevinthiele.nvis_mvg_vector`, so a token from any other
+account can't overwrite it. [publish-to-mapbox.sh](publish-to-mapbox.sh) prompts for that
+token at runtime (masked, never stored); no secret token is needed just to *view* the map
+— that only uses a public `pk.` token.
+
 ---
 
 ## 8. Building on a well-specced machine
@@ -219,3 +226,9 @@ on the app — and they should match:
 
 **Rule of thumb:** set `VITE_VEG_VECTOR_MIN_ZOOM` to whatever `MINZOOM` the team built the
 vector with, so the app never asks for vector tiles below the tileset's minimum zoom.
+
+**Whose account publishes it?** The live tileset is `kevinthiele.nvis_mvg_vector`, so
+overwriting *that exact ID* needs a secret token from **Kevin's** account (§7). If the team
+works under a **different** Mapbox account, they publish under their own — a new
+`USERNAME.nvis_mvg_vector` — and point the app at it by setting the tileset IDs in `.env`
+(`VITE_NVIS_VECTOR_TILESET_ID`, and `VITE_NVIS_TILESET_ID` for the raster overview if used).
