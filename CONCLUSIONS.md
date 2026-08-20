@@ -6,6 +6,14 @@ This document records what we learned getting the NVIS Major Vegetation Groups
 (MVG) data into Mapbox, the decisions made, and the reasoning — so the next
 person (or future you) doesn't have to rediscover it.
 
+> **Update (Aug 2026):** the vector approach in §§3–10 (GDAL's MVT writer, built
+> in-repo via `prepare-vector.mjs`/`build-mbtiles.mjs`) was an install-free
+> attempt on a locked-down machine. The tileset that actually **shipped**
+> (`kevinthiele.nvis_mvg_vector`, z9–13) was built with **tippecanoe** from the
+> NVIS v7.0 **vector** geodatabase — that toolchain and its own lessons live in
+> [`tippecanoe/dcceew`](tippecanoe/dcceew) (`HANDOFF.md`,
+> `LESSONS_AND_WORKFLOW.md`). Treat the GDAL-MVT scripts as a superseded fallback.
+
 ---
 
 ## 1. The core problem

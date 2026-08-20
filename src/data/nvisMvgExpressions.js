@@ -9,10 +9,10 @@
 
 import { NVIS_MVG_CLASSES } from './nvisMvgLegend.js'
 
-/** The property name baked into the vector tiles by prepare-vector.mjs. */
+/** The property name baked into the vector tiles (see map_mvg.py). */
 export const MVG_PROPERTY = 'mvg'
 
-/** The source-layer name inside the .mbtiles (see build-mbtiles.mjs -nln). */
+/** The source-layer name inside the tileset (tippecanoe -l mvg). */
 export const MVG_SOURCE_LAYER = 'mvg'
 
 const rgbCss = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`

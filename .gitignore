@@ -11,6 +11,10 @@ dist/
 .env.bak*
 .env.*.bak
 
+# Secret token files (e.g. tippecanoe/dcceew/token.txt — see its HANDOFF.md §8)
+token.txt
+**/token.txt
+
 # Generated artifacts
 recipe.generated.json
 recipe.vector.generated.json

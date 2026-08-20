@@ -38,8 +38,9 @@ const FILL_ID = 'nvis-mvg-fill'
 const LINE_ID = 'nvis-mvg-outline'
 const RASTER_SOURCE_ID = 'nvis-mvg-raster'
 const RASTER_LAYER_ID = 'nvis-mvg-raster-layer'
-// Raster shows below this zoom; vector at/above it.
-const VEG_VECTOR_MIN_ZOOM = 11
+// Raster shows below this zoom; vector at/above it. The vector tileset starts at
+// z9 (raster owns z0–8), so 9 is the crossover.
+const VEG_VECTOR_MIN_ZOOM = 9
 const AUSTRALIA = { center: [134, -26], zoom: 3.2 }
 
 let map = null

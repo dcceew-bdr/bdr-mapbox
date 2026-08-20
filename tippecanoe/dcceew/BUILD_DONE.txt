@@ -1,0 +1,13 @@
+NVIS 3-PIECE z9-13 (165KB budget) - FINISHED Tue Jul 28 11:18:37 AEST 2026
+======================================================
+file  : /root/nvis/national_hi/nvis_mvg_hi3.mbtiles (2.9G)
+zooms : 9..13  (expected 9..13)
+tiles : 549746 ; biggest 374 KB ; OVER 500KB: 0  (must be 0)
+
+  z9      1815 tiles  max  301.5 KB
+  z10     6864 tiles  max  312.4 KB
+  z11    26552 tiles  max  374.7 KB
+  z12   103984 tiles  max  137.0 KB
+  z13   410531 tiles  max   70.1 KB
+
+RESULT: PASS - z9-13, all tiles <500KB. Fuller NSW at coarse zooms. Ready to publish.

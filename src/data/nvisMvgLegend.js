@@ -1,17 +1,14 @@
 // -----------------------------------------------------------------------------
 //  NVIS Major Vegetation Groups (MVG) legend
 //
-//  Colours come straight from the supplied palette file:
-//    NVIS_V7_30m/NVIS_V7_30m_Revised/NVIS7_0_AUST_EX_MVG.clr
-//  (each .clr line is:  <pixel value>  <R>  <G>  <B>)
+//  Colours are the authoritative NVIS MVG palette, kept in sync with:
+//    tippecanoe/dcceew/SAFE_KEEP/mvg_palette.json
+//  (MVG code -> name + RGB; the same table used to build the tileset and to
+//  visually validate against the official NVIS map).
 //
-//  The class names follow the standard National Vegetation Information System
-//  (NVIS) Major Vegetation Groups classification. Value 99 is the no-data /
-//  "unknown" class. Value 30 (Unclassified Forest) is not present in this raster.
-//
-//  This is the same palette that gets "baked" into the RGB GeoTIFF during the
-//  GDAL color-relief step (see the project README), so the swatches below match
-//  what you see on the map.
+//  The vector tiles carry only the integer `mvg` code; names and colours are
+//  resolved here on the client. Value 99 is the no-data / "unknown" class.
+//  Value 30 (Unclassified Forest) is not present in this dataset.
 // -----------------------------------------------------------------------------
 
 /** @typedef {{ value: number, name: string, rgb: [number, number, number] }} MvgClass */
