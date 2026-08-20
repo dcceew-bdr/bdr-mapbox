@@ -8,6 +8,11 @@ import LegendPanel from './components/LegendPanel.vue'
 const token = import.meta.env.VITE_MAPBOX_TOKEN || ''
 const tilesetId = import.meta.env.VITE_NVIS_VECTOR_TILESET_ID || ''
 const rasterTilesetId = import.meta.env.VITE_NVIS_TILESET_ID || ''
+// Zoom at which the map switches raster → vector. Match it to the vector
+// tileset's minimum zoom (9 for the shipped z9–13 build; set to 0 for a
+// full-range vector build). Non-numeric env values fall back to 9.
+const vectorMinZoom = Number.parseInt(import.meta.env.VITE_VEG_VECTOR_MIN_ZOOM, 10)
+const vegVectorMinZoom = Number.isFinite(vectorMinZoom) ? vectorMinZoom : 9
 
 const hasToken = computed(() => token.startsWith('pk.'))
 const isConfigured = (id) => id.includes('.') && !id.includes('your_')
@@ -100,6 +105,7 @@ function onLegendChange(items) {
         :token="token"
         :tileset-id="tilesetId"
         :raster-tileset-id="rasterTilesetId"
+        :vector-min-zoom="vegVectorMinZoom"
         :basemap-url="basemapUrl"
         :opacity="opacity"
         :layer-visible="layerVisible"

@@ -65,5 +65,5 @@ else
   echo "RESULT: needs a look - send these numbers to Claude."
 fi
 echo "-----------------------------------------------------------------"
-echo "Publish:  apt-get install -y python3-boto3  &&  python3 publish_mapbox.py   (prompts for the Mapbox secret token)"
-echo "  ...or download $MBT and publish from the laptop. Then DESTROY this VM to stop billing."
+echo "Publish:  bash publish-to-mapbox.sh $MBT   (prompts for the Mapbox secret token)"
+echo "  ...or download $MBT and publish from another machine. Then DESTROY this VM to stop billing."

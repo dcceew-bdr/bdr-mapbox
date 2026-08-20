@@ -2,8 +2,7 @@
 
 Written 2026-08-20 as context for picking this work up elsewhere (e.g. a PoC in another
 repo, or another assistant with no history here). Distilled from `BUILD_SETTINGS.md`,
-`LESSONS_AND_WORKFLOW.md`, `CLOUD_BUILD.md`, `RECOVERY_STATUS.txt`, `BUILD_DONE.txt` and
-the logs in `NVIS_SOURCE/`, plus a live check of the machine state.
+`LESSONS_AND_WORKFLOW.md`, `CLOUD_BUILD.md`, and `BUILD_DONE.txt`.
 
 ---
 
@@ -127,75 +126,46 @@ KB, versus 15–71 GB of derived GeoJSON.
 
 ---
 
-## 5. Constraints learned the hard way (numbers, not vibes)
+## 5. Tiling constraints that carry to any machine
 
-All measured on the laptop. They are the reason the build settings look odd.
+tippecanoe lessons that apply regardless of hardware:
 
-1. **Scratch space is the binding constraint.** A single full-detail national pass needs
-   **~300–500 GB** of tippecanoe scratch. The laptop's C: had ~170 GB. Nearly every
-   failure traces to this.
-2. **There is a minimum viable `--maximum-tile-bytes`.** Some NVIS polygons have 100+
-   parts; a *single* feature's z8 tile is **103 KB** at `--simplification=30` (117 KB at
-   10). No amount of dropping goes below one feature, so a budget under that floor aborts
-   with *"Can't increase feature gap threshold further."* Early attempts at 55 KB died
-   this way.
-3. **Low zoom wants small pieces; the z8 floor wants a high budget (= few pieces).** These
-   pull opposite ways, and the piece count is whatever satisfies both.
-4. **`--simplification=30`, not 10.** At light values the z2 "whole continent" mega-tile
+1. **Keep `--maximum-tile-bytes` above ~110 KB.** Some NVIS polygons have 100+ parts; a
+   *single* feature's z8 tile is **103 KB** at `--simplification=30`. No dropping goes
+   below one feature, so a budget under that floor aborts with *"Can't increase feature
+   gap threshold further."*
+2. **`--simplification=30`, not 10.** At light values the z2 "whole continent" mega-tile
    makes tippecanoe thrash for hours. 30 clears it and is invisible when zoomed out.
-5. **`--drop-densest-as-needed`, never `--drop-smallest-as-needed`.** "Keep the biggest
+3. **`--drop-densest-as-needed`, never `--drop-smallest-as-needed`.** "Keep the biggest
    zones" re-sorts millions of features per low-zoom tile and hangs the build.
-6. **Never put `--temporary-directory` on `/mnt/c` or `/mnt/d`.** The Windows<->Linux
-   bridge runs at **~1 MB/s** for tippecanoe's random I/O — effectively a hang.
-7. **WSL's virtual disk creeps.** `ext4.vhdx` grows with scratch and never auto-shrinks;
-   deleting scratch frees space *inside* the file, not on C:. Reclaiming needs `fstrim`
-   then an admin `diskpart compact` with WSL shut down (see [compact_now.txt](compact_now.txt),
-   [reclaim-disk.ps1](reclaim-disk.ps1)). Cannot be automated — UAC.
-8. **Detached `nohup ... &` loops inside WSL silently die.** Use a tracked/managed
-   background task for anything unattended.
-9. **Never run fsck on a faulted filesystem before copying the readable data off.** Doing
-   so cost 71 GB of converted data early in this project.
+4. **Avoid** `--extend-zooms-if-still-dropping` (breaks a fixed zoom contract) and global
+   `--coalesce`/`--reorder` (lock-bound, ~3× slower, cosmetic only).
 
-Avoid `--extend-zooms-if-still-dropping` (breaks a fixed zoom contract) and global
-`--coalesce`/`--reorder` (lock-bound, ~3x slower, cosmetic only).
+On an undersized disk there's a second, machine-specific fight — tippecanoe scratch space
+(~300–500 GB for a full pass), the WSL `/mnt/c` I/O bridge, `ext4.vhdx` creep, and
+splitting the build into pieces. A high-spec build (§8) sidesteps all of it. If you must
+build on a constrained machine, [LESSONS_AND_WORKFLOW.md](LESSONS_AND_WORKFLOW.md) has the
+full account.
 
 ---
 
-## 6. ⚠ Doc drift — what actually shipped
+## 6. What actually shipped
 
-**`BUILD_SETTINGS.md` describes a build that was superseded.** It documents
-*4 pieces / 120 KB budget / zoom 0–13*. The build that actually completed and passed
-([BUILD_DONE.txt](BUILD_DONE.txt), 2026-07-28) was:
+The build that completed and passed ([BUILD_DONE.txt](BUILD_DONE.txt), 2026-07-28):
 
-> **3 pieces · 165 KB budget · zoom 9–13** -> `nvis_mvg_hi3.mbtiles` (2.9 GB)
+> **3 pieces · 165 KB budget · zoom 9–13** → `nvis_mvg_hi3.mbtiles` (2.9 GB),
 > 549,746 tiles; biggest **374 KB**; tiles over 500 KB: **0** — PASS
 
-The zoom range narrowed to **9–13 because a separate raster tileset owns z0–8**
-(`kevinthiele.nvis_mvg`; in this PoC the app sets it via `VITE_NVIS_TILESET_ID`
-and crosses over to vector at z9). Dropping z0–8 removes the low-zoom mega-tile
-problem entirely, which is what allowed 3 pieces at a higher budget. There is also a
-`simp5m/` dataset in WSL (~19 GB, a 5 m simplify) distinct from the 11 m `out/` — the
-final build used the 5 m one.
+Zoom stops at **9 because the raster tileset `kevinthiele.nvis_mvg` owns z0–8** (the app
+crosses over via `VITE_NVIS_TILESET_ID` / `VITE_VEG_VECTOR_MIN_ZOOM`). To build the full
+range instead, see §9.
 
-**If you port this: trust `BUILD_DONE.txt` over `BUILD_SETTINGS.md`.** The build scripts
-themselves (`national_split2.sh` and friends) lived inside WSL and are **not recoverable
-from disk** — they are no longer in `/root/nvis`. The settings above are the record.
+> `BUILD_SETTINGS.md` documents an earlier, superseded laptop split (4 pieces / 120 KB /
+> z0–13) — **trust `BUILD_DONE.txt` over it.**
 
 ---
 
-## 7. Current machine state (checked 2026-08-20)
-
-- The **default WSL distro `Ubuntu` is broken** — it points at `D:\WSL\ext4.vhdx` and D:
-  is not attached, so plain `wsl` fails with `ERROR_PATH_NOT_FOUND`.
-- The real work is in **`Ubuntu-24.04`** (130 GB vhdx on C:). Reach it explicitly with
-  `wsl -d Ubuntu-24.04`.
-- Surviving artefacts there: `/root/nvis/out/` (71 GB raw), `/root/nvis/simp5m/` (19 GB),
-  `/root/nvis/national_hi/nvis_mvg_hi3.mbtiles` (2.9 GB, the finished tileset).
-- Nothing has been published to Mapbox — publishing was always left to a human.
-
----
-
-## 8. ⚠ Secrets
+## 7. ⚠ Secrets
 
 The original `token.txt` in this folder held a **live Mapbox secret (`sk.`) token in
 plaintext** — it was **not** copied into the PoC repo. Rotate it at
@@ -205,11 +175,47 @@ the PoC app uses a public `pk.` token via `VITE_MAPBOX_TOKEN` in `.env`.
 
 ---
 
-## 9. If the PoC has a real budget
+## 8. Building on a well-specced machine
 
-The laptop fight was entirely about undersized scratch. [CLOUD_BUILD.md](CLOUD_BUILD.md)
-has the clean path: rent a ~128 GB-RAM / 1 TB-SSD Ubuntu VM hourly (~$3–8/h, job is 3–6 h,
-**~$20–50 total**), do **one full-detail pass** — no splitting, no pre-simplify, no
-`--simplification=30`, full 500 KB budget — publish, destroy the VM. That removes every
-compromise in §5 at once. A dedicated external SSD (≥500 GB, USB 3) does the same thing
-locally.
+The laptop-era constraints in §5 only bite on an undersized disk. On a machine with the
+headroom — roughly **≥128 GB RAM** and **≥500 GB free fast (NVMe/SSD) scratch** — you do
+**one full-detail pass**: no splitting, no pre-simplify, no `--simplification=30`, full
+500 KB budget. That removes every constraint in §5 at once.
+
+[cloud_build.sh](cloud_build.sh) is that single-pass build — it's a plain Ubuntu script
+(installs tippecanoe + GDAL, tiles, self-verifies), so it runs the same on a **local
+Ubuntu/WSL2 box** as on a cloud VM. Just point it at the converted `out/*.geojsonl` and
+run. See [CLOUD_BUILD.md](CLOUD_BUILD.md) for the step-by-step.
+
+**No machine big enough?** Rent a ~128 GB-RAM / 1 TB-SSD Ubuntu VM hourly (~$3–8/h, job
+3–6 h, **~$20–50 total**), build, publish, destroy it. An external ≥500 GB USB-3 SSD fixes
+the *disk* half locally, but you still need the RAM and the toolchain.
+
+---
+
+## 9. Full-range build + the app switch (two knobs)
+
+The shipped build stops at **z9** only because a raster tileset owned z0–8. To build the
+vector across the **full range**, there are two independent knobs — one on the build, one
+on the app — and they should match:
+
+1. **Build (tippecanoe zoom range)** — already parameterised in
+   [cloud_build.sh](cloud_build.sh) as env vars:
+   ```bash
+   MINZOOM=0 MAXZOOM=13 bash cloud_build.sh   # full range instead of the z9 default
+   ```
+   `MINZOOM`/`MAXZOOM` map straight to `--minimum-zoom`/`--maximum-zoom`. Nothing else
+   needs changing for a wider range; on a high-spec VM the single full-detail pass at the
+   full 500 KB budget clears the low-zoom mega-tile problem that forced the laptop
+   compromises (§5).
+
+2. **App (raster→vector crossover)** — set in the PoC's `.env`:
+   ```bash
+   VITE_VEG_VECTOR_MIN_ZOOM=0   # show vector all the way down; 9 = keep raster below z9
+   ```
+   This drives the `vectorMinZoom` prop in `src/components/NvisVectorMap.vue` (raster
+   `maxzoom` + vector `minzoom`). If the vector covers z0–13 you can also drop the raster
+   overview entirely by leaving `VITE_NVIS_TILESET_ID` unset.
+
+**Rule of thumb:** set `VITE_VEG_VECTOR_MIN_ZOOM` to whatever `MINZOOM` the team built the
+vector with, so the app never asks for vector tiles below the tileset's minimum zoom.

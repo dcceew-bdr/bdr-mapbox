@@ -91,8 +91,8 @@ Notes:
 
 Publish the same way we did from the laptop (needs the Mapbox **secret** upload token):
 ```
-apt-get install -y python3-boto3
-python3 publish_mapbox.py     # the script from the project; prompts for the token
+apt-get install -y awscli jq curl
+bash publish-to-mapbox.sh nvis_mvg.mbtiles   # prompts for the sk. token at runtime
 ```
 …or just download `nvis_mvg.mbtiles` to your laptop and publish/host from there.
 

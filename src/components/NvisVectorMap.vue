@@ -24,8 +24,10 @@ const props = defineProps({
   token: { type: String, required: true },
   // e.g. "kevinthiele.nvis_mvg_vector_90m"
   tilesetId: { type: String, default: '' },
-  // Raster overview shown below VEG_VECTOR_MIN_ZOOM, e.g. "kevinthiele.nvis_mvg"
+  // Raster overview shown below vectorMinZoom, e.g. "kevinthiele.nvis_mvg"
   rasterTilesetId: { type: String, default: '' },
+  // Zoom crossover: raster below, vector at/above. Match the tileset's min zoom.
+  vectorMinZoom: { type: Number, default: 9 },
   basemapUrl: { type: String, required: true },
   opacity: { type: Number, default: 0.85 },
   layerVisible: { type: Boolean, default: true }
@@ -38,9 +40,6 @@ const FILL_ID = 'nvis-mvg-fill'
 const LINE_ID = 'nvis-mvg-outline'
 const RASTER_SOURCE_ID = 'nvis-mvg-raster'
 const RASTER_LAYER_ID = 'nvis-mvg-raster-layer'
-// Raster shows below this zoom; vector at/above it. The vector tileset starts at
-// z9 (raster owns z0–8), so 9 is the crossover.
-const VEG_VECTOR_MIN_ZOOM = 9
 const AUSTRALIA = { center: [134, -26], zoom: 3.2 }
 
 let map = null
@@ -69,7 +68,7 @@ function addNvisVectorLayer() {
     if (map.getSource(id)) map.removeSource(id)
   }
 
-  // Raster overview beneath the vector, drawn only below VEG_VECTOR_MIN_ZOOM.
+  // Raster overview beneath the vector, drawn only below vectorMinZoom.
   if (hasRaster()) {
     map.addSource(RASTER_SOURCE_ID, {
       type: 'raster',
@@ -80,7 +79,7 @@ function addNvisVectorLayer() {
       id: RASTER_LAYER_ID,
       type: 'raster',
       source: RASTER_SOURCE_ID,
-      maxzoom: VEG_VECTOR_MIN_ZOOM,
+      maxzoom: props.vectorMinZoom,
       layout: { visibility: props.layerVisible ? 'visible' : 'none' },
       paint: { 'raster-opacity': props.opacity, 'raster-resampling': 'nearest' }
     })
@@ -106,7 +105,7 @@ function addNvisVectorLayer() {
     type: 'fill',
     source: SOURCE_ID,
     'source-layer': MVG_SOURCE_LAYER,
-    minzoom: VEG_VECTOR_MIN_ZOOM,
+    minzoom: props.vectorMinZoom,
     layout: { visibility: props.layerVisible ? 'visible' : 'none' },
     paint: {
       'fill-color': buildMvgColorExpression(),
@@ -120,7 +119,7 @@ function addNvisVectorLayer() {
     type: 'line',
     source: SOURCE_ID,
     'source-layer': MVG_SOURCE_LAYER,
-    minzoom: VEG_VECTOR_MIN_ZOOM,
+    minzoom: props.vectorMinZoom,
     layout: { visibility: props.layerVisible ? 'visible' : 'none' },
     paint: {
       'line-color': 'rgba(0,0,0,0.15)',
@@ -251,7 +250,7 @@ watch(
 )
 
 watch(
-  () => [props.tilesetId, props.rasterTilesetId],
+  () => [props.tilesetId, props.rasterTilesetId, props.vectorMinZoom],
   () => addNvisVectorLayer()
 )
 
